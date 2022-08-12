@@ -1,0 +1,19 @@
+hq | SUCCESS => {
+    "ansible_facts": {
+        "ansible_net_api": "cliconf",
+        "ansible_net_gather_network_resources": [],
+        "ansible_net_gather_subset": [
+            "default"
+        ],
+        "ansible_net_hostname": "HQ",
+        "ansible_net_image": "flash:c1861-adventerprisek9-mz.151-4.M12a.bin",
+        "ansible_net_iostype": "IOS",
+        "ansible_net_model": "C1861-UC-2BRI-K9",
+        "ansible_net_python_version": "3.8.10",
+        "ansible_net_serialnum": "FTX132383BT",
+        "ansible_net_system": "ios",
+        "ansible_net_version": "15.1(4)M12a",
+        "ansible_network_resources": {}
+    },
+    "changed": false
+}

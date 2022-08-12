@@ -1,0 +1,71 @@
+---
+# Ansible Playbook to upgrade Cisco IOS
+
+
+
+- name: TRANSFER file
+  hosts: hq
+  gather_facts: no
+  vars:
+        ansible_command_timeout: 600
+        tftp_server: 10.10.1.54
+        #ios_file: hq_facts.txt
+        ios_file: c1861-adventerprisek9-mz.152-4.M11.bin 
+
+  tasks:
+    #- name: Copy file to flash
+      #ansible.netcommon.net_put:
+        # src: " ./firmware/{{ upgrade_ios_image }}"
+        #src: "/home/swt/Repo/Automation/Ansible_examples/software_update/hq_facts.txt"
+        # protocol: sftp
+        #protocol: scp
+        #dest: "flash:hq_facts.txt"
+    - name: Collect ios facts
+      ios_facts:
+        gather_subset: 
+          - hardware
+      tags: hwinfo
+
+    - name: display hardware info 
+      ansible.builtin.debug:
+        msg:
+          - " HARDWARE INFO "
+          - "{{ ansible_net_filesystems_info }}"
+          - "Free Space is: {{ ansible_net_filesystems_info['flash:']['spacefree_kb'] }} "
+          - "Current IOS image is: {{ ansible_net_image }}"
+      tags: hwinfo
+
+    - name: Backup Running Config
+      ios_command:
+        commands: show run
+      register: config
+      tags: backup
+
+    - name: Save output of sh run to ./backups/
+      ansible.builtin.copy:
+        content: "{{ config.stdout[0] }}"
+        dest: "./backups/{{ hostvars.localhost.DTG }}/{{ inventory_hostname }}-{{ hostvars.localhost.DTG }}-config.txt"
+        mode: u+rw,g-wx,o-rwx
+      tags: backup
+
+    - name: Not enough free space info check
+      ansible.builtin.debug:
+        msg:
+          - " not enought free space"
+      when: ansible_net_filesystems_info['flash:']['spacefree_kb'] < ios_size  
+      tags: space
+    
+    - name: Delete old IOS release if not enought free space
+      ios_command:
+        commands: delete /force {{ ansible_net_image }}
+      when: ansible_net_filesystems_info['flash:']['spacefree_kb'] < ios_size 
+      tags: del_old    
+
+    - name: Copy IOS to device
+      ios_command:
+          commands:
+            - command: 'copy tftp://{{ tftp_server }}/{{ ios_file }} flash:'
+              prompt: 'Destination filename \[{{ ios_file }}\]?'
+              answer: "\r"
+      when: ansible_net_filesystems_info['flash:']['spacefree_kb'] > ios_size 
+      tags: cp_ios 

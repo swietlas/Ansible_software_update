@@ -1,0 +1,34 @@
+---
+- name: Ansible Playbook to upgrade Cisco IOS
+  hosts: 1800series
+  #hosts: 2900series
+  gather_facts: false
+  vars: 
+        ansible_command_timeout: 600
+        tftp_server: 10.10.1.54
+        #ios_file: hq_facts.txt
+        #src_file: "/srv/tftp/hq_facts.txt"
+        src_path: "/home/swt/Repo/Automation/Ansible_examples/software_update/"
+        src_file: "hq_facts.txt"
+  tasks: 
+
+    - name: Collect ios facts
+      ios_facts:
+        gather_subset:
+          - hardware
+      tags: hwinfo
+
+    - name: Copy File to router/swtich flash
+      ansible.netcommon.net_put: 
+        src: "{{ src_path }}/{{ src_file }}"
+        dest: flash:/{{ src_file }}
+        #protocol: sftp
+      tags: cp_ios
+
+    - name: Check wheter transfered file is present
+      cisco.ios.ios_command:
+        commands:
+          - show flash
+        wait_for:
+          - result[0] contains  "{{ src_file }}"
+...

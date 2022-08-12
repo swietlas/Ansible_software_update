@@ -1,0 +1,144 @@
+---
+- name: Create Backup Dir for today
+  hosts: localhost
+
+  tasks:
+    - name: Get ansible date/time facts
+      ansible.builtin.setup:
+        filter: "ansible_date_time"
+        gather_subset: "!all"
+
+    - name: Store DTG as fact
+      ansible.builtin.set_fact:
+        DTG: "{{ ansible_date_time.date }}"
+
+    - name: Create Directory
+      ansible.builtin.file:
+        path: ./backups/{{ hostvars.localhost.DTG }}
+        state: directory
+        mode: u+rw,g-wx,o-rwx
+  run_once: true
+
+- name: Ansible Playbook to upgrade Cisco IOS
+  hosts: 1800series
+  #hosts: 2900series
+  gather_facts: false
+  vars:
+        ansible_command_timeout: 300
+        tftp_server: 10.10.1.54
+  tasks:
+    - name: Collect ios facts
+      ios_facts:
+        gather_subset:
+          - hardware
+      register: facts
+      tags: hwinfo
+      
+
+    - name: display hardware info
+      ansible.builtin.debug:
+        msg:
+          - "*** HARDWARE INFO ***"
+          - "Free Space is: {{ ansible_net_filesystems_info[ flashname ]['spacefree_kb'] }} kb of {{ ansible_net_filesystems_info[ flashname ]['spacetotal_kb'] }} kb"
+          - "Current IOS image is: {{ ansible_net_image }}"
+          - "Target IOS image is: {{ upgrade_ios_image }}"
+          - "Current IOS version is: {{ ansible_net_version }}"
+          - "Target IOS version is: {{ upgrade_ios_version }}"
+      tags: hwinfo
+
+    - name: Check if current IOS release eq target release Cl
+      meta: end_host
+      when: ansible_net_version == upgrade_ios_version
+      tags: checkver
+
+    - name: Backup Running Config
+      ios_command:
+        commands: show run
+      register: config
+      tags: backup
+
+    - name: Save output of sh run to ./backups/
+      ansible.builtin.copy:
+        content: "{{ config.stdout[0] }}"
+        dest: "./backups/{{ hostvars.localhost.DTG }}/{{ inventory_hostname }}-{{ hostvars.localhost.DTG }}-config.txt"
+        mode: u+rw,g-wx,o-rwx
+      tags: backup
+
+    - name: Not enough free space info check
+      ansible.builtin.debug:
+        msg:
+          - "[Error] there not enought free space for new IOS version"
+      when: ansible_net_filesystems_info[ flashname ]['spacefree_kb'] < ios_size
+      tags: space
+    
+    - name: Delete old IOS release if not enought free space
+      ios_command:
+        commands: delete /force {{ ansible_net_image }}
+      when: ansible_net_filesystems_info[ flashname ]['spacefree_kb'] < ios_size
+      tags: del_old
+
+    - name : Wait to del old IOS
+      ansible.builtin.pause:
+        seconds: 10
+    
+    - name: Copy Image // This could take up to 4 minutes
+      net_put: 
+        src: "/home/swt/Repo/Automation/Ansible_examples/software_update/firmware/{{ upgrade_ios_image }}"
+        dest: "flash:/{{ upgrade_ios_image }}"
+      when: ansible_net_filesystems_info[ flashname ]['spacefree_kb'] > ios_size
+      vars: 
+        ansible_command_timeout: 600
+      tags: cp_ios2
+
+    #- name: Check wheter IOS bin file is present
+    #  cisco.ios.ios_command:
+        #    commands:
+    #      - show flash
+    #    wait_for:
+    #      - result[0] contains {{ upgrade_ios_image }}
+
+    - name: Check md5sum of IOS on device
+      ios_command:
+        commands:
+        - 'verify /md5 flash:{{ upgrade_ios_image }} {{ ios_md5sum }}'
+      register: md5_output
+      vars: 
+        ansible_command_timeout: 600
+      tags: md5sum
+  
+    - name: Change config and reload if md5 checksum matches
+      block:
+      - name: Set new boot variable
+        ios_config:
+          lines: 
+          - no boot system {{ ansible_net_image }}
+          - boot system flash:{{ upgrade_ios_image }}
+          save_when: always
+
+      - name: Reload device
+        ios_command:
+          commands:
+            - command: reload
+              prompt: '\[confirm\]'
+              answer: "\r"
+
+      - name: Wait for device to reboot
+        wait_for:
+          host: "{{ inventory_hostname }}"
+          port: 22
+          delay: 120
+          timeout: 600
+        delegate_to: localhost
+
+      - name: Gather facts of the selected device again
+        ios_facts:
+
+      - name: Assert that the running IOS version is correct
+        assert:
+          that:
+            - upgrade_ios_version == ansible_net_version
+          success_msg: "Upgrade successful."
+          fail_msg: "IOS version does not match compliant version. Upgrade unsuccessful."
+
+      when: '"Verified" in md5_output.stdout[0]'
+  

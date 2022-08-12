@@ -1,0 +1,17 @@
+---
+ansible_connection: network_cli
+ansible_become: yes
+ansible_become_method: enable
+ansible_network_os: ios
+ansible_user: ansi
+ansible_password: C1sc0123!
+flashname: "flash0:"
+#upgrade_ios_version: 15.3(3)M
+#upgrade_ios_image: c2900-universalk9_npe-mz.SPA.153-3.M.bin
+#ios_md5sum: c5d1a2a87d061dab28fc15faf9901b0c
+#ios_size: 93000
+upgrade_ios_version: 15.7(3)M
+upgrade_ios_image: c2900-universalk9-mz.SPA.157-3.M.bin
+ios_md5sum: 0615444e618040d859a6afd18c7e3fc6
+ios_size: 110000
+...

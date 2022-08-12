@@ -1,0 +1,17 @@
+[2900series]
+site-a 
+
+[2800series]
+Rtr3 
+Rtr4
+
+[1800series]
+hq
+
+[routers:children]
+2900series
+2800series
+1800series
+
+
+

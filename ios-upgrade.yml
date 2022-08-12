@@ -1,0 +1,158 @@
+---
+# Ansible Playbook to upgrade Cisco IOS
+
+- name: Upgrade CISCO IOS
+  hosts: hq
+  gather_facts: no
+  vars: 
+     tftp_server: 10.10.1.54
+
+  tasks:
+    - name: Gather interfaces resource and minimal legacy facts
+      cisco.ios.ios_facts:
+        gather_subset:
+          - interfaces
+          - hardware
+      register: facts_output
+
+    - name: CHECK CURRENT VERSION
+      # ios_facts:
+      ansible.builtin.debug:
+        msg:
+          - "Current version is {{ ansible_net_version }}"
+          - "IOS upgrade version is: {{ upgrade_ios_version }}"
+
+
+    - name: Compare target version & current release
+      ansible.builtin.assert:
+        that:
+          - ansible_net_version != upgrade_ios_version 
+        success_msg: "Image is not compliant and will be upgraded"
+        fail_msg:  "Device runs target release"
+
+## Create backup folder for today
+
+- hosts: localhost
+
+  tasks:
+    - name: Get ansible date/time facts
+      ansible.builtin.setup:
+        filter: "ansible_date_time"
+        gather_subset: "!all"
+
+    - name: Store DTG as fact
+      ansible.builtin.set_fact:
+        DTG: "{{ ansible_date_time.date }}"
+
+    - name: Create Directory
+      ansible.builtin.file:
+        path: ./backups/{{ hostvars.localhost.DTG }}
+        state: directory
+        mode: u+rw,g-wx,o-rwx
+  run_once: true
+
+## Backup Running Config
+
+- hosts: hq
+
+  tasks:
+    - name: Backup Running Config
+      ios_command:
+        commands: show run
+      register: config
+
+    - name: Save output to ./backups/
+      ansible.builtin.copy:
+        content: "{{ config.stdout[0] }}"
+        dest: "./backups/{{ hostvars.localhost.DTG }}/{{ inventory_hostname }}-{{ hostvars.localhost.DTG }}-config.txt"
+        mode: u+rw,g-wx,o-rwx
+
+## SAVE the Running Config
+
+    - name: Save running config
+      ios_config:
+        save_when: always
+
+    - name: DISPLAY HARDWARE INFO
+      ansible.builtin.debug:
+        msg:
+          - " HARDWARE INFO "
+          - "{{ ansible_net_filesystems_info }}"
+          - "Free Space is: {{ ansible_net_filesystems_info['flash:']['spacefree_kb'] }} "
+
+    - name: Copy IOS to device only if free space less than ios_size
+      ios_command:
+        commands:
+          - command: 'copy tftp://{{ tftp_server }}/{{ upgrade_ios_image }} flash:'
+            prompt: 'Destination filename \[{{ ios_file }}\]?'
+            answer: "\r"
+      when: ansible_net_filesystems_info['flash:']['spacefree_kb']  > ios_size 
+      vars:
+        ansible_command_timeout: 600
+    
+    - name: If not enough Free space 
+      ansible.builtin.debug:
+        msg:
+          - " not enought free space"
+      when: ansible_net_filesystems_info['flash:']['spacefree_kb']  < ios_size  
+
+    - name: Delete old IOS release
+      ios_command:
+        commands: delete /force {{ ansible_net_image }}
+      tags: delold  
+
+## Copy software to target device
+
+   # - name: Copy Image // This could take up to 4 minutes
+    #  net_put:
+        # src: " ./firmware/{{ upgrade_ios_image }}"
+     #   src: "~/Repo/Automation/Ansible_examples/software_update/firmware/{{ upgrade_ios_image }}"
+      #  dest: "flash:{{ upgrade_ios_image }}"
+     # vars:
+      #  ansible_command_timeout: 600
+
+## Change the Boot Variable to the new image
+
+    - name: Change Boot Variable to new image
+      ios_config:
+        commands:
+          - "boot system flash:{{ upgrade_ios_image }}"
+        save_when: always
+
+## Reload the device
+
+    - name: Reload the Device
+      cli_command:
+        command: reload
+        prompt:
+          - confirm
+        answer:
+          - 'y'
+
+## Wait for Reachability to the device
+
+    - name: Wait for device to come back online
+      ansible.builtin.wait_for:
+        host: "{{ inventory_hostname }}"
+        port: 22
+        delay: 90
+      delegate_to: localhost
+
+## Check current image
+
+    - name: Check Image Version
+      ansible.builtin.debug:
+        msg:
+          - "Current version is {{ ansible_net_version }}"
+
+    - name: ASSERT THAT THE IOS VERSION IS CORRECT
+      ansible.builtin.assert:
+        that:
+          - ansible_net_version == upgrade_ios_version
+        fail_msg: "Image is not compliant and will be upgraded"
+        success_msg: " Device runs targer release"
+
+    - name: Display final message
+      ansible.builtin.debug:
+        ansible.builtin.msg:
+          - "Software Upgrade has been completed"

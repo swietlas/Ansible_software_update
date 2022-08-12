@@ -1,0 +1,17 @@
+---
+ansible_connection: network_cli
+ansible_become: yes
+ansible_become_method: enable
+ansible_network_os: ios
+ansible_user: ansi
+ansible_password: C1sc0123!
+flashname: "flash:"
+#upgrade_ios_version: 15.1(4)M12a
+#upgrade_ios_image: c1861-adventerprisek9-mz.151-4.M12a.bin
+#ios_md5sum: 43b0f86a6627b3bb320ed4b3c96ddcb7
+#ios_size: 49644
+upgrade_ios_version: 15.2(4)M11
+upgrade_ios_image: c1861-adventerprisek9-mz.152-4.M11.bin
+ios_md5sum: 21abb3fccde22f65dd134d53f3970a0d
+ios_size: 56056
+...

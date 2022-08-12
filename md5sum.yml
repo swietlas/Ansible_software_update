@@ -1,0 +1,29 @@
+---
+- name: Ansible Playbook to upgrade Cisco IOS
+  #hosts: 1800series
+  hosts: 2900series
+  gather_facts: false
+  vars: 
+        ansible_command_timeout: 600
+  
+  tasks: 
+    - name: Display command before send to device
+      ansible.builtin.debug:
+        msg:
+        - 'verify /md5 flash:{{ upgrade_ios_image }} {{ ios_md5sum }}'
+
+    - name: Check md5sum of IOS on device
+      ios_command:
+        commands:
+        - 'verify /md5 flash:{{ upgrade_ios_image }} {{ ios_md5sum }}'
+         #- command: 'verify /md5 flash:{{ upgrade_ios_image }} {{ ios_md5sum }}'
+      register: md5_output
+      tags: md5sum
+
+    - name: Check wheter IOS bin file is present
+      cisco.ios.ios_command:
+        commands:
+          - show flash
+        wait_for:
+          - result[0] contains {{ upgrade_ios_image }}
+...
