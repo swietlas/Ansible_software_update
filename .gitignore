@@ -1,4 +1,6 @@
 venv/
 firmware/*
+!firmware
 backups/*
+!backups
 venv29/
