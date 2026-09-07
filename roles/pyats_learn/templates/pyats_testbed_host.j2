@@ -1,0 +1,30 @@
+---
+testbed:
+  name: single_host_testbed
+  devices:
+    {{ target_host }}:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: {{ hostvars[target_host].ansible_host | default(target_host) }}
+          port: {{ hostvars[target_host].ansible_port | default(22) }}
+      credentials:
+        default:
+          username: {{ hostvars[target_host].ansible_user | default(hostvars[target_host].ansible_ssh_user | default('')) }}
+          password: {{ hostvars[target_host].ansible_ssh_pass | default(hostvars[target_host].ansible_password | default('')) }}
+---
+testbed:
+  name: single_host_testbed
+  devices:
+    {{ target_host }}:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: {{ hostvars[target_host].ansible_host | default(target_host) }}
+          port: {{ hostvars[target_host].ansible_port | default(22) }}
+      credentials:
+        default:
+          username: {{ hostvars[target_host].ansible_user | default(hostvars[target_host].ansible_ssh_user | default('')) }}
+          password: {{ hostvars[target_host].ansible_ssh_pass | default(hostvars[target_host].ansible_password | default('')) }}

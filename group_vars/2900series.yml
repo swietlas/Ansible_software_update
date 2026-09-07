@@ -14,4 +14,5 @@ upgrade_ios_version: 15.7(3)M
 upgrade_ios_image: c2900-universalk9-mz.SPA.157-3.M.bin
 ios_md5sum: 0615444e618040d859a6afd18c7e3fc6
 ios_size: 110000
+src_path: "/home/swt/Automation/Ansible_demo/software_update/firmware"
 ...

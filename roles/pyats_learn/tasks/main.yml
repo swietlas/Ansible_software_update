@@ -1,0 +1,106 @@
+---
+# Role: pyats_learn
+# Tasks to generate a pyATS testbed file for a single inventory host and run a learn script
+
+- name: Set defaults for pyats learn
+  set_fact:
+    pyats_python: "{{ lookup('env','VIRT_PYTHON') | default(playbook_dir + '/virt/bin/python') }}"
+    output_dir: "{{ playbook_dir }}/backups"
+    tb_file: "{{ playbook_dir }}/.pyats_testbed_{{ target_host }}.yaml"
+  when: target_host is defined
+
+- name: Ensure output_dir exists
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    ---
+    # Role: pyats_learn
+    # Use clay584.genie.learn_genie when available, otherwise fall back to the local pyats script
+
+    - name: Set defaults for pyats learn
+      set_fact:
+        output_dir: "{{ playbook_dir }}/backups"
+        tb_file: "{{ playbook_dir }}/.pyats_testbed_{{ target_host }}.yaml"
+      when: target_host is defined
+
+    - name: Ensure output_dir exists
+      file:
+        path: "{{ output_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Render pyATS testbed for the target host
+      template:
+        src: pyats_testbed_host.j2
+        dest: "{{ tb_file }}"
+      vars:
+        target_host: "{{ target_host }}"
+
+    - name: Try clay584.genie.learn_genie (operations param)
+      clay584.genie.learn_genie:
+        testbed: "{{ tb_file }}"
+        ---
+        # Role: pyats_learn
+        # Tasks to build a single-host pyATS testbed and run genie learn via clay584.genie.learn_genie
+
+        - name: Assert target_host is defined
+          assert:
+            that:
+              - target_host is defined
+            fail_msg: "target_host must be defined to run this role"
+
+        - name: Set paths
+          set_fact:
+            output_dir: "{{ playbook_dir }}/backups"
+            tb_file: "{{ playbook_dir }}/.pyats_testbed_{{ target_host }}.yaml"
+
+        - name: Ensure output_dir exists
+          file:
+            path: "{{ output_dir }}"
+            state: directory
+            mode: '0755'
+
+        - name: Render pyATS testbed for the target host
+          template:
+            src: pyats_testbed_host.j2
+            dest: "{{ tb_file }}"
+          vars:
+            target_host: "{{ target_host }}"
+
+        - name: Try clay584.genie.learn_genie (operations param)
+          clay584.genie.learn_genie:
+            testbed: "{{ tb_file }}"
+            device: "{{ target_host }}"
+            operations:
+              - platform
+              - interfaces
+              - vlans
+            output: "{{ output_dir }}/{{ target_host }}-learn.json"
+          register: genie_result
+          ignore_errors: yes
+
+        - name: Try clay584.genie.learn_genie (alternate params) if first attempt failed
+          clay584.genie.learn_genie:
+            testbed: "{{ tb_file }}"
+            device: "{{ target_host }}"
+            learn:
+              - platform
+              - interface
+              - vlan
+            dest: "{{ output_dir }}/{{ target_host }}-learn.json"
+          when: genie_result is failed
+          register: genie_result2
+          ignore_errors: yes
+
+        - name: Fallback to local pyats script if module not available or failed
+          command: "{{ playbook_dir }}/virt/bin/python {{ playbook_dir }}/scripts/pyats_learn.py --testbed {{ tb_file }} --host {{ target_host }} --output {{ output_dir }}"
+          when: (genie_result is failed) and (genie_result2 is failed)
+          register: pyats_script_run
+          ignore_errors: yes
+
+        - name: Show results
+          debug:
+            msg: |
+              genie_result={{ genie_result | default({}) }}
+              genie_result2={{ genie_result2 | default({}) }}
+              pyats_script_run={{ pyats_script_run | default({}) }}

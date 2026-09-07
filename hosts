@@ -1,17 +1,23 @@
 [2900series]
-site-a 
+
 
 [2800series]
 Rtr3 
 Rtr4
 
+[2960series]
+sw1
+
 [1800series]
 hq
 
-[routers:children]
-2900series
-2800series
-1800series
+[3560series]
+ac-sw-02 ansible_host=10.10.1.231
+
+[routers]
+
+[site1]
+ac-sw-02 ansible_host=10.10.1.231
 
 
-
+[site2]

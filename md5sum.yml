@@ -1,7 +1,7 @@
 ---
 - name: Ansible Playbook to upgrade Cisco IOS
   #hosts: 1800series
-  hosts: 2900series
+  hosts: 3560series
   gather_facts: false
   vars: 
         ansible_command_timeout: 600

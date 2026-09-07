@@ -1,6 +1,17 @@
+virt/
 venv/
 firmware/*
 !firmware
 backups/*
 !backups
 venv29/
+genie/
+distribute_software_scp copy-working.ym
+distribute_software_scp.yml
+loop.yml
+pre-post-check.yml
+pyats_learn.yml
+pyats_learn_allhosts.yml
+pyats_learn_single_host.yml
+pyats_testbed.j2
+scripts/

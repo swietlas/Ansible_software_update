@@ -1,0 +1,96 @@
+---
+testbed:
+  name: generated_testbed
+  devices:
+    Rtr3:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: Rtr3
+          port: 22
+      credentials:
+        default:
+          username: ansi
+          password: C1sc0123!
+    Rtr4:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: Rtr4
+          port: 22
+      credentials:
+        default:
+          username: ansi
+          password: C1sc0123!
+    hq:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: hq
+          port: 22
+      credentials:
+        default:
+          username: ansi
+          password: C1sc0123!
+    ac-sw-02:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: 10.10.1.231
+          port: 22
+      credentials:
+        default:
+          username: ansi
+          password: C1sc0123!
+---
+testbed:
+  name: generated_testbed
+  devices:
+    Rtr3:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: Rtr3
+          port: 22
+      credentials:
+        default:
+          username: ansi
+          password: C1sc0123!
+    Rtr4:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: Rtr4
+          port: 22
+      credentials:
+        default:
+          username: ansi
+          password: C1sc0123!
+    hq:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: hq
+          port: 22
+      credentials:
+        default:
+          username: ansi
+          password: C1sc0123!
+    ac-sw-02:
+      type: network
+      connections:
+        cli:
+          protocol: ssh
+          ip: 10.10.1.231
+          port: 22
+      credentials:
+        default:
+          username: ansi
+          password: C1sc0123!

@@ -1,0 +1,175 @@
+---
+- name: ANSIBLE PLAYBOOK TO DISTRIBUTE SOFTWARE FOR UPGRADE
+  hosts: 3560series
+  gather_facts: false
+  vars:
+    ansible_command_timeout: 600
+    src_path: "/home/swt/Automation/Ansible_demo/software_update/firmware"
+    #src_file: "c3560e-universalk9-mz.150-2.SE12.bin"
+    # replace src file with "upgrade_ios_image"
+  
+  tasks:
+    - name: COLLECT IOS FACTS
+      cisco.ios.ios_facts:
+        gather_subset:
+          - hardware
+      tags: hwinfo
+
+    - name: DISPLAY HARDWARE INFO
+      ansible.builtin.debug:
+        msg:
+          - "*** HARDWARE INFO ***"
+          - "Free Space is: {{ ansible_net_filesystems_info[flashname]['spacefree_kb'] }} kb of {{ ansible_net_filesystems_info[ flashname ]['spacetotal_kb'] }} kb"
+          - "Current IOS image is: {{ ansible_net_image.split(':')[1]  }}"
+          # - "Current IOS image is: {{ ansible_net_image.split('/')[1]  }}"
+          - "Target IOS image is: {{ upgrade_ios_image }}"
+          - "Current IOS version is: {{ ansible_net_version }}"
+          - "Target IOS version is: {{ upgrade_ios_version }}"
+      tags: hwinfo
+
+    - name: Setting host facts using complex arguments
+      ansible.builtin.set_fact:
+        # currimage: "{{ ansible_net_image.split('/')[1] }}"
+        currimage: "{{ ansible_net_image.split(':')[1] }}"
+
+    # - name: CHECK IF TARGET IMAGE IS PRESENT ON FLASH
+    #   cisco.ios.ios_command:
+    #     commands:
+    #       #- show {{ flashname }} | include .bin
+    #       - dir | include .bin
+    #     wait_for:
+    #       - result[0] contains "{{  upgrade_ios_image }}"
+    #   tags: space
+    #   register: flashoutput
+
+    - name: PARSE 'sh boot'
+      ansible.utils.cli_parse:
+        command: "show boot"
+        parser:
+          name: ansible.netcommon.pyats
+      tags: space
+      register: bootvar
+
+    - name: DISPLAY ACTUAL BOOT IMAGE
+      ansible.builtin.debug:
+        msg:
+          #- " {{ bootvar.parsed.boot_path_list.split('/')[1] }}  "
+          - " {{ bootvar.parsed.boot_path_list.split(':')[1] }}  "
+      tags: space
+      register: bootimage
+
+    - name: REGISTER THE OUTPUT OF "dir"
+      ansible.utils.cli_parse:
+        command: "dir"
+        parser:
+          name: ansible.netcommon.pyats
+      tags: space
+      register: flashoutput
+
+
+    # RUN THIS BLOCK WHEN TARGET IMG NOT PRESENT in FLASH
+    - name: ENSURE NEW IMAGE FILE IS ON FLASH
+      block:
+        - block:
+            - name: CHECK FREE SPACE ON FLASH
+              ansible.builtin.debug:
+                msg:
+                  - "[Error] there not enought free space for new IOS version"
+              when: ansible_net_filesystems_info[flashname]['spacefree_kb'] < ios_size
+              tags: space
+
+            - name: DISPLAY FILES ON FLASH with .bin EXTENSION not contain current image
+              ansible.builtin.debug:
+                msg:
+                  - " {{ item }}"
+              tags: space
+              loop: "{{ flashoutput.parsed.dir['flash:/']['files'].keys() }}"
+              when: "('.bin' in item ) and ( currimage not in item )"
+
+            - name: DELETE OLD IOS FIRMWARE IF NOT ENOUGH FREE SPACE
+              cisco.ios.ios_command:
+                commands: delete /force {{ item }}
+              when: "('.bin' in item ) and ( currimage not in item )"
+              loop: "{{ flashoutput.parsed.dir['flash:/']['files'].keys() }}"
+              # loop: "{{ flashoutput.parsed.dir['flash:/']['files'].keys() }}"
+              tags: del_old
+
+            - name: WAIT TO REMOVE OLD IMAGES
+              ansible.builtin.pause:
+                seconds: 10
+
+          when: ansible_net_filesystems_info[ flashname ]['spacefree_kb'] < ios_size
+
+        - block:
+            - name: ENABLE SCP SERVER
+              cisco.ios.ios_config:
+                lines:
+                  - ip scp server enable
+              tags: cp_ios
+
+            # - name: WRITE MSG
+            #   ansible.builtin.debug:
+            #     msg:
+            #       - "src: {{ src_path }}/{{ upgrade_ios_image }}"
+            #       - "dest: flash:/{{ upgrade_ios_image }}"
+
+
+            - name: COPY IMAGE TO DEVICE'S FLASH
+              ansible.netcommon.net_put:
+                protocol: scp
+                # replace src file with "upgrade_ios_image"
+                src: "{{ src_path }}/{{ upgrade_ios_image }}"
+                # src: "{{ src_path }}/{{ upgrade_ios_image }}"
+                dest: "flash:{{ upgrade_ios_image }}"
+                # dest: "{{ flashname }}/{{ upgrade_ios_image }}"
+                # dest: "{{ flashname }}{{ upgrade_ios_image }}"
+              tags: cp_ios
+
+              # swt@10.10.1.55//srv/tftp/c3560e-universalk9-mz.152-4.E10.bin flash:
+
+            - name: Check wheter transfered file is present
+              cisco.ios.ios_command:
+                commands:
+                  - dir
+                wait_for:
+                  - result[0] contains "{{ upgrade_ios_image }}"
+                 # replace 'src_file' with "upgrade_ios_image"
+                  # - result[0] contains "{{ src_file }}"
+              tags: cp_ios
+
+            - name: Check md5sum of IOS on device
+              cisco.ios.ios_command:
+                commands:
+                  - 'verify /md5 {{ flashname }}{{ upgrade_ios_image }} {{ ios_md5sum }}'
+                # - command: 'verify /md5 flash:{{ upgrade_ios_image }} {{ ios_md5sum }}'
+              register: md5_output
+              vars:
+                ansible_command_timeout: 600
+              tags: md5sum
+
+            - name: ASSERT THAT MD5 SUM IS OK
+              ansible.builtin.assert:
+                that:
+                  - '"Verified" in md5_output.stdout[0]'
+                  # - upgrade_ios_version == ansible_net_version
+                success_msg: "UPLOAD SUCCESSFUL."
+                fail_msg: "IOS IMAGE DISTRIBUTION - UNSUCCESSFUL :( "
+
+            - name: TURN OFF SCP SERVER
+              cisco.ios.ios_config:
+                lines:
+                  - no ip scp server enable
+              tags: cp_ios
+
+      when: upgrade_ios_image not in flashoutput
+
+    - name: END OF TASK
+      ansible.builtin.debug:
+        msg:
+          - "That's all folks !!!"
+
+# sh flash2: | i bytes free
+
+# 122185728 bytes total (9308672 bytes free)
+
+# scp swt@10.10.1.55//srv/tftp/c3560e-universalk9-mz.152-4.E10.bin flash:

@@ -5,4 +5,5 @@ ansible_become_method: enable
 ansible_network_os: ios
 ansible_user: ansi
 ansible_password: C1sc0123!
+src_path: "/home/swt/Automation/Ansible_demo/software_update/firmware"
 ...

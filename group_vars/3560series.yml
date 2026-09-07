@@ -1,0 +1,21 @@
+---
+ansible_connection: network_cli
+ansible_become: yes
+ansible_become_method: enable
+ansible_network_os: ios
+ansible_user: ansi
+ansible_password: C1sc0123!
+flashname: "flash:"
+upgrade_ios_version: 15.2(4)E10
+upgrade_ios_image: "c3560e-universalk9-mz.152-4.E10.bin"
+#src_file: "c3560e-universalk9-mz.152-4.E10.bin"
+#src_file: "hq_facts.txt"
+ios_md5sum: 1e363a4f136c745fa9d069924320d85c
+ios_size: 26000
+src_path: "/home/swt/Automation/Ansible_demo/software_update/firmware"
+#upgrade_ios_version: 15.0(2)SE12
+#upgrade_ios_image: c3560e-universalk9-mz.150-2.SE12.bin
+#ios_md5sum: 5f96fcc68e659e0acacf3ec1a76ab4f5
+#ios_size: 20000
+learn_features: "arp"
+...

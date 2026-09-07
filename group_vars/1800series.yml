@@ -14,4 +14,5 @@ upgrade_ios_version: 15.2(4)M11
 upgrade_ios_image: c1861-adventerprisek9-mz.152-4.M11.bin
 ios_md5sum: 21abb3fccde22f65dd134d53f3970a0d
 ios_size: 56056
+src_path: "/home/swt/Automation/Ansible_demo/software_update/firmware"
 ...
